@@ -1,113 +1,82 @@
 package balti.xposed.pixelifygooglephotos
 
+import android.content.SharedPreferences
 import android.os.Build
 import android.util.Log
-import balti.xposed.pixelifygooglephotos.Constants.PACKAGE_NAME_GOOGLE_PHOTOS
 import balti.xposed.pixelifygooglephotos.Constants.PREF_DEVICE_TO_SPOOF
 import balti.xposed.pixelifygooglephotos.Constants.PREF_ENABLE_VERBOSE_LOGS
 import balti.xposed.pixelifygooglephotos.Constants.PREF_SPOOF_ANDROID_VERSION_FOLLOW_DEVICE
 import balti.xposed.pixelifygooglephotos.Constants.PREF_SPOOF_ANDROID_VERSION_MANUAL
-import balti.xposed.pixelifygooglephotos.Constants.PREF_STRICTLY_CHECK_GOOGLE_PHOTOS
-import de.robv.android.xposed.IXposedHookLoadPackage
-import de.robv.android.xposed.XSharedPreferences
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
-import de.robv.android.xposed.callbacks.XC_LoadPackage
 
 /**
- * Codenames of pixels:
- * https://oneandroid.net/all-google-pixel-codenames-from-sailfish-to-redfin/
+ * Applies the spoofed Pixel device/build properties to the `android.os.Build` static fields of
+ * the hooked process.
  *
- * Device properties stored in [DeviceProps].
+ * Migrated from the legacy `IXposedHookLoadPackage` implementation:
+ * - Preferences now come from the framework Remote Preferences (injected by [PixelifyModule])
+ *   instead of `XSharedPreferences`.
+ * - Legacy `XposedHelpers.setStaticObjectField` is replaced by plain reflection. Each field is
+ *   set independently: a failure (e.g. immutable `SDK_INT`, field absent on this Android
+ *   version) is logged and skipped instead of aborting the whole spoofing like before.
  */
-class DeviceSpoofer: IXposedHookLoadPackage {
+class DeviceSpoofer(prefs: SharedPreferences?) {
 
-    /**
-     * Simple message to log messages in lsposed log as well as android log.
-     */
-    private fun log(message: String){
-        XposedBridge.log("PixelifyGooglePhotos: $message")
-        Log.d("PixelifyGooglePhotos", message)
-    }
+    private val verboseLog: Boolean = prefs?.getBoolean(PREF_ENABLE_VERBOSE_LOGS, false) ?: false
 
-    /**
-     * To read preference of user.
-     */
-    private val pref by lazy {
-        XSharedPreferences(BuildConfig.APPLICATION_ID, Constants.SHARED_PREF_FILE_NAME)
-    }
-
-    private val verboseLog: Boolean by lazy {
-        pref.getBoolean(PREF_ENABLE_VERBOSE_LOGS, false)
+    private fun log(message: String) {
+        Log.d(TAG, message)
     }
 
     /**
      * This will always be null if the user has not chosen to spoof android version.
-     * If not null, then following will be spoofed:
-     * [Build.VERSION.RELEASE], [Build.VERSION.SDK_INT]
-     *
-     * @see DeviceProps.AndroidVersion
      */
-    private val androidVersionToSpoof: DeviceProps.AndroidVersion? by lazy {
-        if (pref.getBoolean(PREF_SPOOF_ANDROID_VERSION_FOLLOW_DEVICE, false))
+    private val androidVersionToSpoof: DeviceProps.AndroidVersion? = run {
+        if (prefs?.getBoolean(PREF_SPOOF_ANDROID_VERSION_FOLLOW_DEVICE, false) == true)
             finalDeviceToSpoof?.androidVersion
         else {
-            pref.getString(PREF_SPOOF_ANDROID_VERSION_MANUAL, null)?.let {
+            prefs?.getString(PREF_SPOOF_ANDROID_VERSION_MANUAL, null)?.let {
                 DeviceProps.getAndroidVersionFromLabel(it)
             }
         }
     }
 
     /**
-     * This is the final device to spoof.
-     * By default use Pixel 5.
+     * This is the final device to spoof. Defaults to [DeviceProps.defaultDeviceName].
      */
-    private val finalDeviceToSpoof by lazy {
-        val deviceName = pref.getString(PREF_DEVICE_TO_SPOOF, DeviceProps.defaultDeviceName)
+    private val finalDeviceToSpoof: DeviceProps.DeviceEntries? = run {
+        val deviceName = prefs?.getString(PREF_DEVICE_TO_SPOOF, DeviceProps.defaultDeviceName)
+            ?: DeviceProps.defaultDeviceName
         log("Device spoof: $deviceName")
         DeviceProps.getDeviceProps(deviceName)
     }
 
     /**
-     * Inspired by:
-     * https://github.com/itsuki-t/FakeDeviceData/blob/master/src/jp/rmitkt/xposed/fakedevicedata/FakeDeviceData.java
+     * Rewrite the Build / Build.VERSION static fields of this process, like the original module
+     * did through XposedHelpers. Called once per process, right after the hooks are installed.
      */
-    override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam?) {
-
-        /**
-         * If user selects to never use this on any other app other than Google photos,
-         * then check package name and return if necessary.
-         */
-        if (pref.getBoolean(PREF_STRICTLY_CHECK_GOOGLE_PHOTOS, true) &&
-            lpparam?.packageName != PACKAGE_NAME_GOOGLE_PHOTOS) return
-
-        log("Loaded DeviceSpoofer for ${lpparam?.packageName}")
-        log("Device spoof: ${finalDeviceToSpoof?.deviceName}")
-
-        finalDeviceToSpoof?.props?.run {
-
-            if (keys.isEmpty()) return
-            val classLoader = lpparam?.classLoader ?: return
-
-            val classBuild = XposedHelpers.findClass("android.os.Build", classLoader)
-            keys.forEach {
-                XposedHelpers.setStaticObjectField(classBuild, it, this[it])
-                if (verboseLog) log("DEVICE PROPS: $it - ${this[it]}")
-            }
-
+    fun applyBuildProps() {
+        finalDeviceToSpoof?.props?.let { props ->
+            if (props.isEmpty()) return@let
+            props.forEach { (key, value) -> trySetStaticField(Build::class.java, key, value) }
         }
 
-        androidVersionToSpoof?.getAsMap()?.run {
-
-            val classLoader = lpparam?.classLoader ?: return
-            val classBuild = XposedHelpers.findClass("android.os.Build.VERSION", classLoader)
-
-            keys.forEach {
-                XposedHelpers.setStaticObjectField(classBuild, it, this[it])
-                if (verboseLog) log("VERSION SPOOF: $it - ${this[it]}")
-            }
+        androidVersionToSpoof?.getAsMap()?.forEach { (key, value) ->
+            trySetStaticField(Build.VERSION::class.java, key, value)
         }
-
     }
 
+    private fun trySetStaticField(clazz: Class<*>, fieldName: String, value: Any?) {
+        try {
+            val field = clazz.getDeclaredField(fieldName)
+            field.isAccessible = true
+            field.set(null, value)
+            if (verboseLog) log("DEVICE PROPS: ${clazz.simpleName}.$fieldName - $value")
+        } catch (t: Throwable) {
+            log("Failed to spoof ${clazz.name}.$fieldName = $value: $t")
+        }
+    }
+
+    private companion object {
+        const val TAG = "PixelifyGooglePhotos"
+    }
 }

@@ -13,7 +13,13 @@ object Constants {
 
     val FIELD_LATEST_VERSION_CODE = "latest_version_code"
 
-    val SHARED_PREF_FILE_NAME = "prefs"
+    /**
+     * Group name of the framework "Remote Preferences" shared by the module UI process and
+     * the hooked Google Photos process. Replaces the legacy MODE_WORLD_READABLE
+     * SharedPreferences + XSharedPreferences mechanism, which is no longer supported by
+     * the Modern Xposed API (101/102).
+     */
+    const val PREFS_GROUP = "pixelify"
 
     val CONF_EXPORT_NAME = "pgp_conf.json"
 

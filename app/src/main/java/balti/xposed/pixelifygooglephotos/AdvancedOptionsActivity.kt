@@ -9,13 +9,14 @@ import balti.xposed.pixelifygooglephotos.Constants.PREF_DEVICE_TO_SPOOF
 import balti.xposed.pixelifygooglephotos.Constants.PREF_ENABLE_VERBOSE_LOGS
 import balti.xposed.pixelifygooglephotos.Constants.PREF_SPOOF_ANDROID_VERSION_FOLLOW_DEVICE
 import balti.xposed.pixelifygooglephotos.Constants.PREF_SPOOF_ANDROID_VERSION_MANUAL
-import balti.xposed.pixelifygooglephotos.Constants.SHARED_PREF_FILE_NAME
 
 class AdvancedOptionsActivity: AppCompatActivity(R.layout.advanced_options_activity) {
 
-    private val pref by lazy {
-        getSharedPreferences(SHARED_PREF_FILE_NAME, MODE_WORLD_READABLE)
-    }
+    /**
+     * Framework-backed Remote Preferences (see [ModulePrefs]). If the framework connection is not
+     * available yet, the activity simply closes; the main activity handles reconnecting.
+     */
+    private val pref get() = ModulePrefs.current
 
     private val verboseLogging by lazy { findViewById<CheckBox>(R.id.verbose_logging) }
     private val deviceNameLabel by lazy { findViewById<TextView>(R.id.device_name_label) }
@@ -27,14 +28,18 @@ class AdvancedOptionsActivity: AppCompatActivity(R.layout.advanced_options_activ
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (pref == null) return
+        ModulePrefs.connect()
+        val prefs = pref ?: run {
+            finish()
+            return
+        }
 
-        verboseLogging.isChecked = pref.getBoolean(PREF_ENABLE_VERBOSE_LOGS, false)
+        verboseLogging.isChecked = prefs.getBoolean(PREF_ENABLE_VERBOSE_LOGS, false)
 
         /**
          * Get the current spoofing device an its android version.
          */
-        val deviceNameInPreference = pref.getString(PREF_DEVICE_TO_SPOOF, DeviceProps.defaultDeviceName)
+        val deviceNameInPreference = prefs.getString(PREF_DEVICE_TO_SPOOF, DeviceProps.defaultDeviceName)
         val spoofDevice = DeviceProps.getDeviceProps(deviceNameInPreference)
         deviceNameLabel.text = spoofDevice?.deviceName
         deviceAndroidVersion.text = spoofDevice?.androidVersion?.label
@@ -56,7 +61,7 @@ class AdvancedOptionsActivity: AppCompatActivity(R.layout.advanced_options_activ
 
             aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             adapter = aa
-            val defaultSelection = pref?.getString(PREF_SPOOF_ANDROID_VERSION_MANUAL, null)
+            val defaultSelection = prefs.getString(PREF_SPOOF_ANDROID_VERSION_MANUAL, null)
             setSelection(aa.getPosition(defaultSelection))
         }
 
@@ -70,11 +75,11 @@ class AdvancedOptionsActivity: AppCompatActivity(R.layout.advanced_options_activ
                 androidVersionSpinner.isVisible = checkedId == R.id.manually_set_android_version
             }
 
-            val manualVersion = pref.getString(PREF_SPOOF_ANDROID_VERSION_MANUAL, null)?.trim()
+            val manualVersion = prefs.getString(PREF_SPOOF_ANDROID_VERSION_MANUAL, null)?.trim()
 
             check(
                 when {
-                    pref.getBoolean(PREF_SPOOF_ANDROID_VERSION_FOLLOW_DEVICE, false) -> R.id.follow_spoof_device_version
+                    prefs.getBoolean(PREF_SPOOF_ANDROID_VERSION_FOLLOW_DEVICE, false) -> R.id.follow_spoof_device_version
                     manualVersion != null && manualVersion in allVersionLabels -> R.id.manually_set_android_version
                     else -> R.id.dont_spoof_android_version
                 }
@@ -91,7 +96,7 @@ class AdvancedOptionsActivity: AppCompatActivity(R.layout.advanced_options_activ
      * Function to save all options.
      */
     private fun savePreferences(){
-        pref?.edit()?.run {
+        ModulePrefs.current?.edit()?.run {
 
             /** Option for verbose log. */
             putBoolean(PREF_ENABLE_VERBOSE_LOGS, verboseLogging.isChecked)

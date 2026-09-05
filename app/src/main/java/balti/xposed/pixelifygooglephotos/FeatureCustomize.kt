@@ -5,36 +5,43 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.children
 import balti.xposed.pixelifygooglephotos.Constants.PREF_SPOOF_FEATURES_LIST
-import balti.xposed.pixelifygooglephotos.Constants.SHARED_PREF_FILE_NAME
 
 /**
  * Provides granular controls for selecting some specific feature flags.
  */
 class FeatureCustomize: AppCompatActivity(R.layout.feature_customize) {
 
-    private val pref by lazy {
-        getSharedPreferences(SHARED_PREF_FILE_NAME, MODE_WORLD_READABLE)
-    }
+    /**
+     * Framework-backed Remote Preferences (see [ModulePrefs]).
+     */
+    private val pref get() = ModulePrefs.current
 
     /**
      * Set of feature names enabled by the user, fetched from shared prefs.
      * If nothing is enabled, use default case from [DeviceProps.defaultFeatures].
      */
     private val enabledFeaturesNames: Set<String> by lazy {
-
         val defaultFeatures = DeviceProps.defaultFeatures
         val defaultFeatureLevelsName = defaultFeatures.map { it.displayName }.toSet()
 
-        pref.getStringSet(PREF_SPOOF_FEATURES_LIST, defaultFeatureLevelsName)?: setOf()
+        pref?.getStringSet(PREF_SPOOF_FEATURES_LIST, defaultFeatureLevelsName) ?: defaultFeatureLevelsName
     }
 
     private val utils by lazy { Utils() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        ModulePrefs.connect()
+        if (pref == null) {
+            Toast.makeText(this, R.string.module_not_enabled, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
 
         val checkboxHolder = findViewById<LinearLayout>(R.id.feature_checkbox_holder)
         val saveButton = findViewById<Button>(R.id.save_features)
@@ -65,7 +72,7 @@ class FeatureCustomize: AppCompatActivity(R.layout.feature_customize) {
                 checkboxHolder.children.filter { it is CheckBox && it.isChecked }
                     .map { (it as CheckBox).text.toString() }.toSet()
 
-            pref.edit().apply {
+            ModulePrefs.current?.edit()?.apply {
                 putStringSet(PREF_SPOOF_FEATURES_LIST, checkedFeatureNames)
                 apply()
             }

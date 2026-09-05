@@ -28,7 +28,6 @@ import balti.xposed.pixelifygooglephotos.Constants.PREF_SPOOF_FEATURES_LIST
 import balti.xposed.pixelifygooglephotos.Constants.PREF_STRICTLY_CHECK_GOOGLE_PHOTOS
 import balti.xposed.pixelifygooglephotos.Constants.RELEASES_URL
 import balti.xposed.pixelifygooglephotos.Constants.RELEASES_URL2
-import balti.xposed.pixelifygooglephotos.Constants.SHARED_PREF_FILE_NAME
 import balti.xposed.pixelifygooglephotos.Constants.TELEGRAM_GROUP
 import balti.xposed.pixelifygooglephotos.Constants.UPDATE_INFO_URL
 import balti.xposed.pixelifygooglephotos.Constants.UPDATE_INFO_URL2
@@ -42,18 +41,25 @@ import java.net.URL
 class ActivityMain: AppCompatActivity(R.layout.activity_main) {
 
     /**
-     * Normally [MODE_WORLD_READABLE] causes a crash.
-     * But if "xposedsharedprefs" flag is present in AndroidManifest,
-     * then the file is accordingly taken care by lsposed framework.
-     *
-     * If an exception is thrown, means module is not enabled,
-     * hence Android throws a security exception.
+     * Framework-backed Remote Preferences (see [ModulePrefs]). Null while the Xposed framework
+     * service is not connected, i.e. the module is not enabled or the framework does not
+     * support the Modern Xposed API (101+).
      */
-    private val pref by lazy {
-        try {
-            getSharedPreferences(SHARED_PREF_FILE_NAME, MODE_WORLD_READABLE)
-        } catch (_: Exception){
-            null
+    private val pref get() = ModulePrefs.current
+
+    private var moduleDisabledDialog: AlertDialog? = null
+
+    /**
+     * Invoked (on an arbitrary thread) once the framework service becomes available.
+     * Dismisses the "module not enabled" dialog, if shown, and rebuilds the UI so that all
+     * controls reflect the real configuration.
+     */
+    private val onFrameworkConnected = {
+        runOnUiThread {
+            if (isFinishing || isDestroyed) return@runOnUiThread
+            moduleDisabledDialog?.dismiss()
+            moduleDisabledDialog = null
+            restartActivity()
         }
     }
 
@@ -99,20 +105,44 @@ class ActivityMain: AppCompatActivity(R.layout.activity_main) {
         startActivity(intent)
     }
 
+    /**
+     * Shows the "module not enabled / framework not reachable" dialog unless the framework
+     * connection has been established in the meantime. The dialog offers retrying, in case the
+     * user just enabled the module or the framework pushes the binder late.
+     */
+    private fun showModuleDisabledDialogIfNeeded() {
+        if (isFinishing || pref != null) return
+        if (moduleDisabledDialog?.isShowing == true) return
+        moduleDisabledDialog = AlertDialog.Builder(this)
+            .setMessage(R.string.module_not_enabled)
+            .setPositiveButton(R.string.retry) { _, _ ->
+                window.decorView.postDelayed({ showModuleDisabledDialogIfNeeded() }, 1500)
+            }
+            .setNegativeButton(R.string.close) { _, _ ->
+                finish()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    override fun onDestroy() {
+        ModulePrefs.removeConnectionListener(onFrameworkConnected)
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         /**
-         * Check if [pref] is not null. If it is, then module is not enabled.
+         * Connect to the Xposed framework service and refresh the UI once the framework-backed
+         * preferences are available. The binder push is asynchronous, so if the connection is not
+         * ready yet, show the "module not enabled" dialog after a short grace period (see
+         * [onFrameworkConnected] and [showModuleDisabledDialogIfNeeded]).
          */
-        if (pref == null){
-            AlertDialog.Builder(this)
-                .setMessage(R.string.module_not_enabled)
-                .setPositiveButton(R.string.close) {_, _ ->
-                    finish()
-                }
-                .setCancelable(false)
-                .show()
+        ModulePrefs.connect()
+        if (pref == null) {
+            ModulePrefs.addConnectionListener(onFrameworkConnected)
+            window.decorView.postDelayed({ showModuleDisabledDialogIfNeeded() }, 1000)
         }
 
         /**

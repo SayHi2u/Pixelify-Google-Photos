@@ -1,15 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="MissingTranslation">
 
-    <!--Things to update in new versions:
-
-    build.gradle: versionCode
-    build.gradle: versionName
-
-    update_info.json
-
-    changelog
-    -->
+    <!--Modern Xposed API module description (shown by the framework)-->
+    <string name="module_description">Add Google Pixel features in Google Photos on any device.</string>
 
     <string name="app_name">Pixelify GPhotos</string>
 
@@ -20,7 +13,7 @@
     <string name="customize_feature_flags">Customize feature flags.</string>
     <string name="feature_flags_changed">Feature flags changed!</string>
     <string name="spoof_only_in_google_photos">Make sure to spoof only in Google Photos.</string>
-    <string name="spoof_only_in_google_photos_desc">In LSPosed, the module is by default only activated for Google Photos.
+    <string name="spoof_only_in_google_photos_desc">The module is by default only activated for Google Photos.
     If you want to use it in other apps, then keep this toggle <b>OFF</b>.</string>
     <string name="override_rom_feature_levels">Override ROM feature levels.</string>
     <string name="override_rom_feature_levels_desc">Pass false to hooked method for higher feature levels present in ROM
@@ -28,21 +21,27 @@
     <string name="force_stop_google_photos">Force stop\nGoogle Photos</string>
     <string name="module_not_enabled">
         \n
-        Looks like the this app module is not enabled.\n
-        Please enable it in LSPosed / EdXposed, then reboot.\n
-        If already enabled, then just reboot. If that does not work, kindly uninstall and reinstall.
+        Could not connect to the Xposed framework service.\n
+        \n
+        Make sure the module is enabled in LSPosed and that your framework supports the Modern Xposed API (101 or higher), then reboot.\n
+        \n
+        If it still does not work, open the module once after enabling it.
     </string>
+    <string name="retry">Retry</string>
     <string name="close">Close</string>
     <string name="open_google_photos">Open Google Photos</string>
     <string name="telegram_group">Telegram group!</string>
     <string name="update_available">App update available!</string>
 
     <!--changelog-->
-    <string name="version_head">Version 4.1</string>
+    <string name="version_head">Version 5.0</string>
     <string name="version_desc">
         \n
-        # In light of recent event of Vanced project getting shut down because of using Youtube logo,
-        this app\'s logo has been updated to avoid any legal conflict.\n
+        Migration release: the module now uses the Modern Xposed API 102 (libxposed).\n
+        \n
+        - Requires a framework with Modern Xposed API support (API 101+).\n
+        - Configuration is shared through Remote Preferences of the framework, no root is needed for reading settings.\n
+        - After enabling the module, force stop Google Photos once.\n
     </string>
 
     <!--menu_activity_main.xml-->
@@ -70,8 +69,8 @@
 
     <!--advanced_options_activity.xml-->
     <string name="enable_verbose_logging">Enable verbose logging</string>
-    <string name="enable_verbose_logging_desc">More debug information in LSPosed / EdXposed logs and Android logcat.\n
-        To share logs, open LSPosed / EdXposed -> Logs -> top Save icon. Then share the created file.
+    <string name="enable_verbose_logging_desc">More debug information in LSPosed logs and Android logcat.\n
+        To share logs, open LSPosed -> Logs -> top Save icon. Then share the created file.
     </string>
     <string name="spoof_android_version">Spoof android version.</string>
     <string name="spoof_android_version_desc">Do not set an Android version greater than your current version.\n

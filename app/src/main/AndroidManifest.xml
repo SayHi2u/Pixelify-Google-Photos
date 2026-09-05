@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="balti.xposed.pixelifygooglephotos">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -9,28 +8,23 @@
         <package android:name="com.google.android.apps.photos" />
     </queries>
 
+    <!--
+      Modern Xposed API (libxposed, API >= 101) module identification:
+      - module name    -> android:label
+      - module desc    -> android:description
+      - entry classes  -> META-INF/xposed/java_init.list
+      - module props   -> META-INF/xposed/module.prop
+      - default scope  -> META-INF/xposed/scope.list
+      (legacy xposedmodule/xposeddescription/xposedminversion/xposedscope
+       meta-data and assets/xposed_init are no longer used)
+    -->
     <application
         android:label="@string/app_name"
+        android:description="@string/module_description"
         android:supportsRtl="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.PixelifyGooglePhotos" >
-
-        <meta-data
-            android:name="xposedmodule"
-            android:value="true" />
-        <meta-data
-            android:name="xposeddescription"
-            android:value="Add Google Pixel features in Google Photos on any device." />
-        <meta-data
-            android:name="xposedsharedprefs"
-            android:value="true" />
-        <meta-data
-            android:name="xposedminversion"
-            android:value="93" />
-        <meta-data
-            android:name="xposedscope"
-            android:resource="@array/module_scope" />
 
         <activity android:name=".ActivityMain"
             android:exported="true">
