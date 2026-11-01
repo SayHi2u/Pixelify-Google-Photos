@@ -23,9 +23,9 @@
         \n
         Could not connect to the Xposed framework service.\n
         \n
-        Make sure the module is enabled in LSPosed and that your framework supports the Modern Xposed API (101 or higher), then reboot.\n
+        Make sure the module is enabled in LSPosed and that your framework supports the Modern Xposed API (101 or higher).\n
         \n
-        If it still does not work, open the module once after enabling it.
+        The framework pushes its service while this app\'s process is starting, so after enabling the module you must fully close this app (Force stop) and open it again - or simply reboot.\n
     </string>
     <string name="retry">Retry</string>
     <string name="close">Close</string>
