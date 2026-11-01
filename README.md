@@ -1,3 +1,4 @@
+迁移Pixelify-Google-Photos至lsposed 102 api
 # Pixelify-Google-Photos
 
 ⚠️⚠️ This project is EOL. I have entirely stopped using Google Photos. Sorry for the inconvenience. ⚠️⚠️
