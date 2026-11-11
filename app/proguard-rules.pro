@@ -27,3 +27,8 @@
 -keep,allowoptimization,allowobfuscation public class * extends io.github.libxposed.api.XposedModule {
     public <init>();
 }
+# JNI: NativeFieldSetter's class and native method names are looked up by the VM.
+-keep class balti.xposed.pixelifygooglephotos.NativeFieldSetter { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}

@@ -223,12 +223,21 @@ class ActivityMain: AppCompatActivity(R.layout.activity_main) {
             aa.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             adapter = aa
             val defaultSelection = pref?.getString(PREF_DEVICE_TO_SPOOF, DeviceProps.defaultDeviceName)
+                ?.takeIf { DeviceProps.getDeviceProps(it) != null }
+                ?: DeviceProps.defaultDeviceName
             /** Second argument is `false` to prevent calling [peekFeatureFlagsChanged] on initialization */
             setSelection(aa.getPosition(defaultSelection), false)
 
+            // Some Spinners still deliver an onItemSelected callback after the listener is
+            // attached. Ignore it when it merely repeats the already stored device: otherwise
+            // it would overwrite a custom feature-flag selection with the device defaults.
+            var currentDeviceName: String? = defaultSelection
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                     val deviceName = aa.getItem(position)
+                    if (deviceName == currentDeviceName) return
+                    currentDeviceName = deviceName
+
                     pref?.edit()?.apply {
                         putString(PREF_DEVICE_TO_SPOOF, deviceName)
                         putStringSet(

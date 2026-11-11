@@ -78,7 +78,10 @@ object ModulePrefs {
      * Register a listener invoked once when the framework connection becomes available.
      * If already connected, the listener is invoked immediately.
      */
+    @Synchronized
     fun addConnectionListener(listener: () -> Unit) {
+        // Synchronize with notifyConnected(): otherwise a listener added between the null
+        // check and the list insertion could never be called.
         if (prefs != null) {
             listener()
             return
@@ -86,10 +89,12 @@ object ModulePrefs {
         connectionListeners.add(listener)
     }
 
+    @Synchronized
     fun removeConnectionListener(listener: () -> Unit) {
         connectionListeners.remove(listener)
     }
 
+    @Synchronized
     private fun notifyConnected() {
         connectionListeners.forEach { it() }
         connectionListeners.clear()

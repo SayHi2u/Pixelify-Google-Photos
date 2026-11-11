@@ -34,14 +34,16 @@
     <string name="update_available">App update available!</string>
 
     <!--changelog-->
-    <string name="version_head">Version 5.0</string>
+    <string name="version_head">Version 5.1</string>
     <string name="version_desc">
         \n
-        Migration release: the module now uses the Modern Xposed API 102 (libxposed).\n
+        Android 17 compatibility release.\n
         \n
-        - Requires a framework with Modern Xposed API support (API 101+).\n
-        - Configuration is shared through Remote Preferences of the framework, no root is needed for reading settings.\n
-        - After enabling the module, force stop Google Photos once.\n
+        - Native ACC_FINAL helper restores Build.MODEL/BRAND/... spoofing on Android 17.\n
+        - Every Build prop write is read back and verified; failures are logged.\n
+        - Fixed forward-reference bug in the follow-device Android version option.\n
+        - Import/export, force-stop and spinner edge cases fixed.\n
+        - After enabling/updating the module, force stop Google Photos once.\n
     </string>
 
     <!--menu_activity_main.xml-->
@@ -73,8 +75,9 @@
         To share logs, open LSPosed -> Logs -> top Save icon. Then share the created file.
     </string>
     <string name="spoof_android_version">Spoof android version.</string>
-    <string name="spoof_android_version_desc">Do not set an Android version greater than your current version.\n
-        Example, if your Android version is <b>Pie</b>, you can set <b>Nougat / Oreo / Pie</b>, but not Q / R / S.
+    <string name="spoof_android_version_desc">This is an advanced, risky option and is off by default.\n
+        Versions whose SDK is lower than the real device SDK are skipped automatically to avoid legacy-code startup crashes.\n
+        Do not set an Android version greater than your current version.
     </string>
     <string name="this_might_cause_crash">This might cause Google Photos to immediately crash!</string>
     <string name="dont_spoof_android_version">Don\'t spoof Android version <b>(Recommended)</b></string>

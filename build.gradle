@@ -2,7 +2,7 @@
 // Kotlin compilation is provided by AGP's built-in Kotlin support (no separate
 // kotlin-android plugin is required).
 plugins {
-    id 'com.android.application' version '9.2.1' apply false
+    id 'com.android.application' version '9.3.1' apply false
 }
 
 task clean(type: Delete) {

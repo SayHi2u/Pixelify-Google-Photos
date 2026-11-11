@@ -1,7 +1,6 @@
 package balti.xposed.pixelifygooglephotos
 
 import android.content.SharedPreferences
-import android.util.Log
 import balti.xposed.pixelifygooglephotos.Constants.PREF_ENABLE_VERBOSE_LOGS
 import balti.xposed.pixelifygooglephotos.Constants.PREF_OVERRIDE_ROM_FEATURE_LEVELS
 import balti.xposed.pixelifygooglephotos.Constants.PREF_SPOOF_FEATURES_LIST
@@ -25,7 +24,7 @@ class FeatureSpoofer(prefs: SharedPreferences?) {
     private val verboseLog: Boolean = prefs?.getBoolean(PREF_ENABLE_VERBOSE_LOGS, false) ?: false
 
     private fun log(message: String) {
-        Log.d(TAG, message)
+        ModuleLog.d(message)
     }
 
     /**
@@ -42,6 +41,7 @@ class FeatureSpoofer(prefs: SharedPreferences?) {
         val defaultFeatures = DeviceProps.defaultFeatures
         val defaultFeatureLevelsName = defaultFeatures.map { it.displayName }.toSet()
 
+        val defaultFeatureFlags = defaultFeatures.flatMap { it.featureFlags }
         val featureFlags = prefs?.getStringSet(PREF_SPOOF_FEATURES_LIST, defaultFeatureLevelsName)?.let { set ->
             val eligibleFeatures: List<DeviceProps.Features> =
                 when {
@@ -59,7 +59,7 @@ class FeatureSpoofer(prefs: SharedPreferences?) {
             val allFeatureFlags = ArrayList<String>(0)
             eligibleFeatures.forEach { allFeatureFlags.addAll(it.featureFlags) }
             allFeatureFlags
-        } ?: listOf()
+        } ?: defaultFeatureFlags
 
         featureFlags.apply { log("Pass TRUE for feature flags: $featureFlags") }
     }
@@ -106,9 +106,5 @@ class FeatureSpoofer(prefs: SharedPreferences?) {
                 chain.proceed()
             }
         }
-    }
-
-    private companion object {
-        const val TAG = "PixelifyGooglePhotos"
     }
 }

@@ -25,6 +25,34 @@ The features being "spoofed" can be found from:
 [PixelFeatureDrops magisk module](https://github.com/ayush5harma/PixelFeatureDrops/tree/master/system/etc/sysconfig)  
 This module can also spoof some of the `build.prop` information like `BRAND`, `MANUFACTURER`, `MODEL`, `FINGERPRINT` of some Pixel devices.  
 
+### Building with the Android 17 native helper
+
+The module now contains a small JNI helper (`app/src/main/cpp/field_setter.cpp`) that clears the
+ART `ArtField` `ACC_FINAL` flag inside the hooked Google Photos process. It is required for
+`Build.MODEL` and the other `static final` Build fields on Android 17 / targetSdk 37.
+
+Requirements:
+
+- Android NDK **27.2.12479018** (set via `ndkVersion` in `app/build.gradle`)
+- CMake **3.22.1**
+- For a release APK, create an untracked `keystore.properties` in the repository root:
+
+```properties
+storeFile=release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+If `keystore.properties` is absent, `assembleRelease` produces an unsigned APK instead of
+silently signing it with the public debug key. `assembleDebug` still works for local testing.
+
+```bash
+./gradlew :app:assembleDebug
+# or, after configuring keystore.properties:
+./gradlew :app:assembleRelease
+```
+
 ### Disclaimer!!
 The user takes sole responsibility for any damage that might arise due to use of this module.  
 This includes physical damage (to device), injury, data loss, and also legal matters.  

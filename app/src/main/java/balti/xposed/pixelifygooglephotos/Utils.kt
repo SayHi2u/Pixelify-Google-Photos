@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.widget.Toast
 import balti.xposed.pixelifygooglephotos.Constants.PREF_DEVICE_TO_SPOOF
@@ -19,6 +21,7 @@ import org.json.JSONObject
 import java.io.BufferedWriter
 import java.io.ByteArrayOutputStream
 import java.io.OutputStreamWriter
+import kotlin.concurrent.thread
 
 
 /**
@@ -34,31 +37,40 @@ class Utils {
      * Tried my level best to use xposed API to force stop the application,
      * but it kept throwing error that XposedHelpers not found. No idea why.
      */
-    fun forceStopPackage(packageName: String, context: Context){
-        try {
-            Toast.makeText(context, R.string.killing_please_wait, Toast.LENGTH_SHORT).show()
-            Runtime.getRuntime().exec("su").apply {
-                BufferedWriter(OutputStreamWriter(this.outputStream)).run {
-                    this.write("am force-stop $packageName\n")
-                    this.write("exit\n")
-                    this.flush()
+    fun forceStopPackage(packageName: String, context: Context) {
+        Toast.makeText(context, R.string.killing_please_wait, Toast.LENGTH_SHORT).show()
+
+        // Do not block the UI thread while su/am runs, and do not report success until the
+        // command actually exits successfully. The old implementation wrote to su's stdin and
+        // returned immediately, so a denied root prompt still looked like a force-stop.
+        thread(name = "PixelifyForceStop") {
+            val exitCode = runCatching {
+                val process = ProcessBuilder("su")
+                    .redirectErrorStream(true)
+                    .start()
+                process.outputStream.bufferedWriter().use { writer ->
+                    writer.write("am force-stop $packageName\n")
+                    writer.write("exit\n")
+                }
+                process.inputStream.bufferedReader().use { it.readText() }
+                process.waitFor()
+            }.getOrNull()
+
+            if (exitCode != 0) {
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(context, R.string.failed_to_stop_package, Toast.LENGTH_SHORT).show()
+                    runCatching {
+                        context.startActivity(
+                            Intent().apply {
+                                action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                data = Uri.fromParts("package", packageName, null)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        )
+                    }
                 }
             }
-        } catch (e: Exception){
-            Toast.makeText(context, R.string.failed_to_stop_package, Toast.LENGTH_SHORT).show()
-            val intent = Intent().apply {
-                action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-                data = Uri.fromParts("package", packageName, null)
-            }
-            context.startActivity(intent)
         }
-
-        /*
-        * This could should have theoretically worked:
-        *
-        * val activityManager: ActivityManager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-        * XposedHelpers.callMethod(activityManager, "forceStopPackage", packageName)
-        */
     }
 
     /**
@@ -183,40 +195,44 @@ class Utils {
             }
 
             PREF_DEVICE_TO_SPOOF.let { key ->
-                jsonObject.optString(key)?.let {
-                    putString(key, it)
+                if (jsonObject.has(key)) {
+                    val value = jsonObject.optString(key, "").trim()
+                    if (value.isNotEmpty() && DeviceProps.getDeviceProps(value) != null) {
+                        putString(key, value)
+                    } else {
+                        // Never write an empty/unknown device: it would make getDeviceProps()
+                        // return null and silently disable all Build field spoofing.
+                        remove(key)
+                    }
                 }
             }
 
             PREF_STRICTLY_CHECK_GOOGLE_PHOTOS.let { key ->
-                jsonObject.optBoolean(key, true).let {
-                    putBoolean(key, it)
-                }
+                if (jsonObject.has(key)) putBoolean(key, jsonObject.optBoolean(key, true))
             }
 
             PREF_OVERRIDE_ROM_FEATURE_LEVELS.let { key ->
-                jsonObject.optBoolean(key, true).let {
-                    putBoolean(key, it)
-                }
+                if (jsonObject.has(key)) putBoolean(key, jsonObject.optBoolean(key, true))
             }
 
             /** Advanced options */
 
             PREF_ENABLE_VERBOSE_LOGS.let { key ->
-                jsonObject.optBoolean(key, true).let {
-                    putBoolean(key, it)
-                }
+                if (jsonObject.has(key)) putBoolean(key, jsonObject.optBoolean(key, false))
             }
 
             PREF_SPOOF_ANDROID_VERSION_FOLLOW_DEVICE.let { key ->
-                jsonObject.optBoolean(key, true).let {
-                    putBoolean(key, it)
-                }
+                if (jsonObject.has(key)) putBoolean(key, jsonObject.optBoolean(key, false))
             }
 
             PREF_SPOOF_ANDROID_VERSION_MANUAL.let { key ->
-                jsonObject.optString(key)?.let {
-                    putString(key, it)
+                if (jsonObject.has(key)) {
+                    val value = jsonObject.optString(key, "").trim()
+                    if (value.isNotEmpty() && DeviceProps.getAndroidVersionFromLabel(value) != null) {
+                        putString(key, value)
+                    } else {
+                        remove(key)
+                    }
                 }
             }
 
